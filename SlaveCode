@@ -1,0 +1,91 @@
+//slave
+#include <Arduino.h>
+#include <Wire.h> 
+#define I2C_ADDRESS 21
+int number = 1;
+int dataPin = 4;    // SER (Serial Data Input)
+int deurLamp = 13;
+int liftLamp = 12;
+int clockPin = 6;   // SRCLK (Shift Register Clock)
+int knopPin = 7;
+int latchPin = 5;   // RCLK (Storage Register Clock)
+int buttonLightPin = 8;
+
+
+int lift = 0;
+byte cijferArray[5] = {
+  0b1111101, 0b01001000, 0b00111011, 0b0101111, 0b01100110
+};
+
+int verdieping = 0;
+
+void receiveData(int byteCount) {
+  while (Wire.available()) {
+    char receivedChar = Wire.read();
+    switch (receivedChar) {
+      case '0': number = 0; break;
+      case '1': number = 1; break;
+      case '2': number = 2; break;
+      case '3': number = 3; break;
+      case '4': number = 4; break;
+    }
+    segementDisplay1(number);
+    Serial.print("Received data: ");
+    Serial.println(receivedChar);
+  }
+}
+
+void segementDisplay1(int verdieping) {
+  byte segmentPattern = cijferArray[verdieping];
+  for (int i = 0; i < 8; i++) {
+    digitalWrite(latchPin, LOW);
+    shiftOut(dataPin, clockPin, MSBFIRST, segmentPattern);
+    digitalWrite(latchPin, HIGH);
+  }
+}
+
+
+void setup() {
+  pinMode(deurLamp, OUTPUT);
+  pinMode(liftLamp, OUTPUT);
+  pinMode(buttonLightPin, OUTPUT);
+  pinMode(dataPin, OUTPUT);
+  pinMode(clockPin, OUTPUT);
+  pinMode(latchPin, OUTPUT);
+  pinMode(knopPin, INPUT);
+
+  Wire.begin(I2C_ADDRESS);
+  Wire.onReceive(receiveData);
+  Wire.onRequest(requestEvent);
+  Serial.begin(9600);
+  segementDisplay1(number);
+}
+
+void requestEvent(){
+  Wire.write(lift);
+}
+
+
+void loop() {
+  
+  
+  if (number == verdieping) {
+    digitalWrite(deurLamp, 1);
+    digitalWrite(liftLamp, 0);
+    lift = 0;
+  } else {
+    digitalWrite(deurLamp, 0); 
+    digitalWrite(liftLamp, 1);
+  }
+
+
+  if (digitalRead(knopPin) == 1) {
+    digitalWrite(buttonLightPin, 1);
+    if(number == verdieping) {
+      digitalWrite(buttonLightPin, 0);
+    } else {
+      lift = 1;
+    }
+    
+  }
+}
